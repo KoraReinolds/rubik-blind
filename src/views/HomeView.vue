@@ -1,10 +1,17 @@
 <script setup lang="ts">
-import { shallowRef } from 'vue'
+import { onMounted, ref, shallowRef, watch } from 'vue'
 import { getLayer, rotateLayer } from '@/entities/layer'
 import type { IPiece } from '@/entities/piece/types'
 import type { TCoord } from '@/entities/coord/types'
+import type { ILayer } from '@/entities/layer/types'
+import * as THREE from 'three'
+import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js'
+import GUI from 'lil-gui'
 
 const SIZE = 3
+const gui = new GUI()
+const canvas = ref<HTMLCanvasElement | null>(null)
+let renderCube: (coords: TCoord[]) => void | undefined
 
 const coordMap: Record<string, TCoord> = {}
 
@@ -23,10 +30,16 @@ const initCube = (size: number) => {
       }
     }
   }
+  layersX = getLayer([...state.keys()], 'x')
+  layersY = getLayer([...state.keys()], 'y')
+  layersZ = getLayer([...state.keys()], 'z')
   return state
 }
 
-const state = shallowRef<TCubeState>(initCube(SIZE))
+const state = shallowRef<TCubeState>(new Map())
+let layersX: ILayer | undefined
+let layersY: ILayer | undefined
+let layersZ: ILayer | undefined
 
 const getCoord = (coord: TCoord) => {
   const rawCoord = `${Object.values(coord)}`
@@ -54,14 +67,92 @@ const changeState = (state: TCubeState, coords: TCoord[], newCoords: TCoord[]) =
   return newState
 }
 
-const layersX = getLayer([...state.value.keys()], 'x')
-const layersY = getLayer([...state.value.keys()], 'y')
-const layersZ = getLayer([...state.value.keys()], 'z')
+onMounted(() => {
+  if (!canvas.value) return
 
-const newCoords = rotateLayer(layersX.coords[0], layersX.rotateAxis)
-state.value = changeState(state.value, layersX.coords[0], newCoords)
+  const scene = new THREE.Scene()
+
+  const ambientLight = new THREE.AmbientLight(0xffffff, 1.5)
+  scene.add(ambientLight)
+
+  const pointLight = new THREE.PointLight(0xffffff, 50)
+  pointLight.position.x = 2
+  pointLight.position.y = 3
+  pointLight.position.z = 4
+  scene.add(pointLight)
+
+  const material = new THREE.MeshStandardMaterial()
+  material.roughness = 0.4
+
+  const sizes = {
+    width: window.innerWidth,
+    height: window.innerHeight
+  }
+
+  window.addEventListener('resize', () => {
+    sizes.width = window.innerWidth
+    sizes.height = window.innerHeight
+
+    camera.aspect = sizes.width / sizes.height
+    camera.updateProjectionMatrix()
+
+    renderer.setSize(sizes.width, sizes.height)
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2))
+  })
+
+  const camera = new THREE.PerspectiveCamera(75, sizes.width / sizes.height, 0.1, 100)
+  camera.position.x = 2
+  camera.position.y = 2
+  camera.position.z = 3
+  scene.add(camera)
+
+  const controls = new OrbitControls(camera, canvas.value)
+  controls.enableDamping = true
+
+  const renderer = new THREE.WebGLRenderer({
+    canvas: canvas.value
+  })
+  renderer.setSize(sizes.width, sizes.height)
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2))
+
+  const clock = new THREE.Clock()
+
+  const tick = () => {
+    const elapsedTime = clock.getElapsedTime()
+
+    // cube.rotation.y = 0.1 * elapsedTime
+
+    // cube.rotation.x = 0.15 * elapsedTime
+
+    controls.update()
+
+    renderer.render(scene, camera)
+
+    window.requestAnimationFrame(tick)
+  }
+
+  tick()
+  state.value = initCube(SIZE)
+
+  renderCube = (coords: TCoord[]) => {
+    coords.forEach(({ x, y, z }) => {
+      const cube = new THREE.Mesh(new THREE.BoxGeometry(cubeSize, cubeSize, cubeSize), material)
+      cube.translateX(x)
+      cube.translateY(y)
+      cube.translateZ(z)
+      scene.add(cube)
+    })
+  }
+})
+
+const cubeSize = 0.9
+
+watch(
+  () => state.value,
+  (value) => renderCube([...value.values()].map((piece) => piece.coord))
+)
 </script>
 
 <template>
-  <div v-for="coord in layersX.coords[0]">{{ coord.y }} {{ coord.z }}</div>
+  <canvas ref="canvas"></canvas>
 </template>

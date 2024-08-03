@@ -13,6 +13,7 @@
     "format": "prettier --write src/"
   },
   "dependencies": {
+    "lil-gui": "^0.19.2",
     "three": "^0.167.1",
     "vue": "^3.4.29",
     "vue-router": "^4.3.3"

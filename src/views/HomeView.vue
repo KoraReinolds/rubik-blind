@@ -81,8 +81,14 @@ onMounted(() => {
   pointLight.position.z = 4
   scene.add(pointLight)
 
-  const material = new THREE.MeshStandardMaterial()
-  material.roughness = 0.4
+  const material = [
+    new THREE.MeshBasicMaterial({ color: 0xff0000 }), // Top face (red)
+    new THREE.MeshBasicMaterial({ color: 0xffa500 }), // Bottom face (orange)
+    new THREE.MeshBasicMaterial({ color: 0xffff00 }), // Right face (yellow)
+    new THREE.MeshBasicMaterial({ color: 0xffffff }), // Left face (white)
+    new THREE.MeshBasicMaterial({ color: 0x0000ff }), // Back face (blue)
+    new THREE.MeshBasicMaterial({ color: 0x008000 }) // Front face (green)
+  ]
 
   const sizes = {
     width: window.innerWidth,
@@ -145,7 +151,7 @@ onMounted(() => {
   }
 })
 
-const cubeSize = 0.9
+const cubeSize = 0.97
 
 watch(
   () => state.value,

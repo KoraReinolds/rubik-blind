@@ -1,5 +1,5 @@
-import type { TCoord } from '../coord/types'
+import * as THREE from 'three'
 
 export interface IPiece {
-  coord: TCoord
+  mesh: THREE.Mesh
 }

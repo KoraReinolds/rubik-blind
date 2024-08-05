@@ -1,8 +1,8 @@
 <script setup lang="ts">
 import { onMounted, ref, shallowRef, watch } from 'vue'
-import { getLayer, rotateLayer } from '@/entities/layer'
+import { axisToVector, getLayer, rotateLayer } from '@/entities/layer'
 import type { IPiece } from '@/entities/piece/types'
-import type { TCoord } from '@/entities/coord/types'
+import type { TCoord, TAxis } from '@/entities/coord/types'
 import type { ILayer } from '@/entities/layer/types'
 import * as THREE from 'three'
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js'
@@ -11,9 +11,17 @@ import GUI from 'lil-gui'
 const SIZE = 3
 const gui = new GUI()
 const canvas = ref<HTMLCanvasElement | null>(null)
-let renderCube: (coords: TCoord[]) => void | undefined
+let renderCube: (pieces: IPiece[]) => void | undefined
 
 const coordMap: Record<string, TCoord> = {}
+const material = [
+  new THREE.MeshBasicMaterial({ color: 0xff0000 }), // Top face (red)
+  new THREE.MeshBasicMaterial({ color: 0xffa500 }), // Bottom face (orange)
+  new THREE.MeshBasicMaterial({ color: 0xffff00 }), // Right face (yellow)
+  new THREE.MeshBasicMaterial({ color: 0xffffff }), // Left face (white)
+  new THREE.MeshBasicMaterial({ color: 0x0000ff }), // Back face (blue)
+  new THREE.MeshBasicMaterial({ color: 0x008000 }) // Front face (green)
+]
 
 type TCubeState = Map<TCoord, IPiece>
 
@@ -24,7 +32,11 @@ const initCube = (size: number) => {
     for (let y = 0; y < size; y++) {
       for (let z = 0; z < size; z++) {
         const coord: TCoord = { x: +x - half, y: +y - half, z: +z - half }
-        const piece: IPiece = { coord }
+        const mesh = new THREE.Mesh(new THREE.BoxGeometry(cubeSize, cubeSize, cubeSize), material)
+        mesh.translateX(x - 1)
+        mesh.translateY(y - 1)
+        mesh.translateZ(z - 1)
+        const piece: IPiece = { mesh }
         coordMap[`${Object.values(coord)}`] = coord
         state.set(coord, piece)
       }
@@ -48,6 +60,10 @@ const getCoord = (coord: TCoord) => {
     console.warn('Not find state')
   }
   return newCoord
+}
+
+const getState = (coord: TCoord) => {
+  return state.value.get(getCoord(coord))
 }
 
 const changeState = (state: TCubeState, coords: TCoord[], newCoords: TCoord[]) => {
@@ -77,18 +93,9 @@ onMounted(() => {
 
   const pointLight = new THREE.PointLight(0xffffff, 50)
   pointLight.position.x = 2
-  pointLight.position.y = 3
+  pointLight.position.y = 8
   pointLight.position.z = 4
   scene.add(pointLight)
-
-  const material = [
-    new THREE.MeshBasicMaterial({ color: 0xff0000 }), // Top face (red)
-    new THREE.MeshBasicMaterial({ color: 0xffa500 }), // Bottom face (orange)
-    new THREE.MeshBasicMaterial({ color: 0xffff00 }), // Right face (yellow)
-    new THREE.MeshBasicMaterial({ color: 0xffffff }), // Left face (white)
-    new THREE.MeshBasicMaterial({ color: 0x0000ff }), // Back face (blue)
-    new THREE.MeshBasicMaterial({ color: 0x008000 }) // Front face (green)
-  ]
 
   const sizes = {
     width: window.innerWidth,
@@ -107,9 +114,9 @@ onMounted(() => {
   })
 
   const camera = new THREE.PerspectiveCamera(75, sizes.width / sizes.height, 0.1, 100)
-  camera.position.x = 2
-  camera.position.y = 2
-  camera.position.z = 3
+  camera.position.x = 4
+  camera.position.y = 4
+  camera.position.z = 6
   scene.add(camera)
 
   const controls = new OrbitControls(camera, canvas.value)
@@ -121,14 +128,27 @@ onMounted(() => {
   renderer.setSize(sizes.width, sizes.height)
   renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2))
 
+  const axesHelper = new THREE.AxesHelper(5)
+  scene.add(axesHelper)
+  const o3d = new THREE.Object3D()
+  scene.add(o3d)
+  o3d.add(axesHelper)
+
+  const rotate = (axes: TAxis, coords: TCoord[], angle: number) => {
+    const meshes = coords.map((coord) => getState(coord)?.mesh).filter((mesh) => !!mesh)
+    meshes.forEach((mesh) => o3d.add(mesh))
+    const normalizedAxis = axisToVector(axes).normalize()
+    const quaternion = new THREE.Quaternion()
+    quaternion.setFromAxisAngle(normalizedAxis, angle)
+    o3d.applyQuaternion(quaternion)
+    meshes.forEach((mesh) => scene.add(mesh.applyQuaternion(quaternion)))
+    o3d.clear()
+  }
+
   const clock = new THREE.Clock()
 
   const tick = () => {
     const elapsedTime = clock.getElapsedTime()
-
-    // cube.rotation.y = 0.1 * elapsedTime
-
-    // cube.rotation.x = 0.15 * elapsedTime
 
     controls.update()
 
@@ -140,14 +160,10 @@ onMounted(() => {
   tick()
   state.value = initCube(SIZE)
 
-  renderCube = (coords: TCoord[]) => {
-    coords.forEach(({ x, y, z }) => {
-      const cube = new THREE.Mesh(new THREE.BoxGeometry(cubeSize, cubeSize, cubeSize), material)
-      cube.translateX(x)
-      cube.translateY(y)
-      cube.translateZ(z)
-      scene.add(cube)
-    })
+  renderCube = (pieces: IPiece[]) => {
+    pieces.forEach(({ mesh }) => scene.add(mesh))
+    if (layersX) rotate(layersX.rotateAxis, layersX.coords[0], Math.PI)
+    if (layersY) rotate(layersY.rotateAxis, layersY.coords[0], Math.PI)
   }
 })
 
@@ -155,7 +171,7 @@ const cubeSize = 0.97
 
 watch(
   () => state.value,
-  (value) => renderCube([...value.values()].map((piece) => piece.coord))
+  (value) => renderCube([...value.values()])
 )
 </script>
 

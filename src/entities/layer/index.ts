@@ -1,19 +1,22 @@
 import type { TCoord, TAxis } from '../coord/types'
-import type { IPiece } from '../piece/types'
 import type { ILayer } from './types'
 import * as THREE from 'three'
 
-export const getLayer = (allCoords: TCoord[], axis: TAxis): ILayer => {
+export const getLayer = (allCoords: TCoord[], axes: TAxis): ILayer => {
   const coords: TCoord[][] = []
   for (let i = 0; i < Math.cbrt(allCoords.length); i++) {
-    coords.push(allCoords.filter((coord) => coord[axis] === i))
+    coords.push(allCoords.filter((coord) => coord[axes] === i))
   }
-  return { rotateAxis: axis, coords }
+  return { rotateAxis: axes, coords }
 }
 
-export const rotateLayer = (coords: TCoord[], axis: TAxis) => {
+export const axisToVector = (axes: TAxis) => {
+  return new THREE.Vector3(+(axes === 'x'), +(axes === 'y'), +(axes === 'z'))
+}
+
+export const rotateLayer = (coords: TCoord[], axes: TAxis) => {
   const angle = Math.PI / 2
-  const axisVec = new THREE.Vector3(+(axis === 'x'), +(axis === 'y'), +(axis === 'z'))
+  const axisVec = axisToVector(axes)
   const newCoords: TCoord[] = []
   coords.forEach(({ x, y, z }) => {
     const point = new THREE.Vector3(x, y, z)

@@ -5,7 +5,7 @@ import * as THREE from 'three'
 export const getLayer = (allCoords: TCoord[], axes: TAxis): ILayer => {
   const coords: TCoord[][] = []
   for (let i = 0; i < Math.cbrt(allCoords.length); i++) {
-    coords.push(allCoords.filter((coord) => coord[axes] === i))
+    coords.push(allCoords.filter((coord) => coord[axes] === i - 1))
   }
   return { rotateAxis: axes, coords }
 }

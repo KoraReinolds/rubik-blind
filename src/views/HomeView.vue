@@ -15,12 +15,12 @@ let renderCube: (pieces: IPiece[]) => void | undefined
 
 const coordMap: Record<string, TCoord> = {}
 const material = [
-  new THREE.MeshBasicMaterial({ color: 0xff0000 }), // Top face (red)
-  new THREE.MeshBasicMaterial({ color: 0xffa500 }), // Bottom face (orange)
-  new THREE.MeshBasicMaterial({ color: 0xffff00 }), // Right face (yellow)
-  new THREE.MeshBasicMaterial({ color: 0xffffff }), // Left face (white)
-  new THREE.MeshBasicMaterial({ color: 0x0000ff }), // Back face (blue)
-  new THREE.MeshBasicMaterial({ color: 0x008000 }) // Front face (green)
+  new THREE.MeshBasicMaterial({ color: 0x0000ff }), // (blue)
+  new THREE.MeshBasicMaterial({ color: 0x008000 }), // (green)
+  new THREE.MeshBasicMaterial({ color: 0xffff00 }), // (yellow)
+  new THREE.MeshBasicMaterial({ color: 0xffffff }), // (white)
+  new THREE.MeshBasicMaterial({ color: 0xff0000 }), // (red)
+  new THREE.MeshBasicMaterial({ color: 0xffa500 }) // (orange)
 ]
 
 type TCubeState = Map<TCoord, IPiece>
@@ -45,6 +45,7 @@ const initCube = (size: number) => {
   layersX = getLayer([...state.keys()], 'x')
   layersY = getLayer([...state.keys()], 'y')
   layersZ = getLayer([...state.keys()], 'z')
+
   return state
 }
 
@@ -114,7 +115,7 @@ onMounted(() => {
   })
 
   const camera = new THREE.PerspectiveCamera(75, sizes.width / sizes.height, 0.1, 100)
-  camera.position.x = 4
+  camera.position.x = -4
   camera.position.y = 4
   camera.position.z = 6
   scene.add(camera)
@@ -145,6 +146,30 @@ onMounted(() => {
     o3d.clear()
   }
 
+  const notation = {
+    'U ': () => layersY && rotate(layersY.rotateAxis, layersY.coords[2], -Math.PI / 2),
+    "U'": () => layersY && rotate(layersY.rotateAxis, layersY.coords[2], Math.PI / 2),
+
+    'D ': () => layersY && rotate(layersY.rotateAxis, layersY.coords[0], Math.PI / 2),
+    "D'": () => layersY && rotate(layersY.rotateAxis, layersY.coords[0], -Math.PI / 2),
+
+    'R ': () => layersX && rotate(layersX.rotateAxis, layersX.coords[2], -Math.PI / 2),
+    "R'": () => layersX && rotate(layersX.rotateAxis, layersX.coords[2], Math.PI / 2),
+
+    'L ': () => layersX && rotate(layersX.rotateAxis, layersX.coords[0], Math.PI / 2),
+    "L'": () => layersX && rotate(layersX.rotateAxis, layersX.coords[0], -Math.PI / 2),
+
+    'F ': () => layersZ && rotate(layersZ.rotateAxis, layersZ.coords[2], -Math.PI / 2),
+    "F'": () => layersZ && rotate(layersZ.rotateAxis, layersZ.coords[2], Math.PI / 2),
+
+    'B ': () => layersZ && rotate(layersZ.rotateAxis, layersZ.coords[0], Math.PI / 2),
+    "B'": () => layersZ && rotate(layersZ.rotateAxis, layersZ.coords[0], -Math.PI / 2)
+  }
+
+  Object.keys(notation).forEach((key) => {
+    gui.add(notation, key)
+  })
+
   const clock = new THREE.Clock()
 
   const tick = () => {
@@ -162,8 +187,6 @@ onMounted(() => {
 
   renderCube = (pieces: IPiece[]) => {
     pieces.forEach(({ mesh }) => scene.add(mesh))
-    if (layersX) rotate(layersX.rotateAxis, layersX.coords[0], Math.PI)
-    if (layersY) rotate(layersY.rotateAxis, layersY.coords[0], Math.PI)
   }
 })
 

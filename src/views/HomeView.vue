@@ -1,9 +1,8 @@
 <script setup lang="ts">
 import { onMounted, ref, shallowRef, watch } from 'vue'
-import { axisToVector, getLayer, rotateLayer } from '@/entities/layer'
+import { axisToVector } from '@/entities/layer'
 import type { IPiece } from '@/entities/piece/types'
 import type { TCoord, TAxis } from '@/entities/coord/types'
-import type { ILayer } from '@/entities/layer/types'
 import * as THREE from 'three'
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js'
 import GUI from 'lil-gui'
@@ -15,8 +14,8 @@ let renderCube: (pieces: IPiece[]) => void | undefined
 
 const coordMap: Record<string, TCoord> = {}
 const material = [
-  new THREE.MeshBasicMaterial({ color: 0x0000ff }), // (blue)
   new THREE.MeshBasicMaterial({ color: 0x008000 }), // (green)
+  new THREE.MeshBasicMaterial({ color: 0x0000ff }), // (blue)
   new THREE.MeshBasicMaterial({ color: 0xffff00 }), // (yellow)
   new THREE.MeshBasicMaterial({ color: 0xffffff }), // (white)
   new THREE.MeshBasicMaterial({ color: 0xff0000 }), // (red)
@@ -42,47 +41,11 @@ const initCube = (size: number) => {
       }
     }
   }
-  layersX = getLayer([...state.keys()], 'x')
-  layersY = getLayer([...state.keys()], 'y')
-  layersZ = getLayer([...state.keys()], 'z')
 
   return state
 }
 
 const state = shallowRef<TCubeState>(new Map())
-let layersX: ILayer | undefined
-let layersY: ILayer | undefined
-let layersZ: ILayer | undefined
-
-const getCoord = (coord: TCoord) => {
-  const rawCoord = `${Object.values(coord)}`
-  const newCoord = coordMap[rawCoord]
-  if (!newCoord) {
-    console.warn('Not find state')
-  }
-  return newCoord
-}
-
-const getState = (coord: TCoord) => {
-  return state.value.get(getCoord(coord))
-}
-
-const changeState = (state: TCubeState, coords: TCoord[], newCoords: TCoord[]) => {
-  const newState: TCubeState = new Map(JSON.parse(JSON.stringify([...state.entries()])))
-
-  coords.forEach((coord, i) => {
-    const replaceCoord = getCoord(coord)
-    if (replaceCoord) {
-      replaceCoord.x = newCoords[i].x
-      replaceCoord.y = newCoords[i].y
-      replaceCoord.z = newCoords[i].z
-    } else {
-      console.warn('Prev state not found')
-    }
-  })
-
-  return newState
-}
 
 onMounted(() => {
   if (!canvas.value) return
@@ -131,39 +94,57 @@ onMounted(() => {
 
   const axesHelper = new THREE.AxesHelper(5)
   scene.add(axesHelper)
-  const o3d = new THREE.Object3D()
-  scene.add(o3d)
-  o3d.add(axesHelper)
 
-  const rotate = (axes: TAxis, coords: TCoord[], angle: number) => {
-    const meshes = coords.map((coord) => getState(coord)?.mesh).filter((mesh) => !!mesh)
+  const rotate = (axes: TAxis, position: number, angle: number) => {
+    const o3d = new THREE.Object3D()
+    scene.add(o3d)
+    const meshes = [...state.value.values()]
+      .map((piece) => piece.mesh)
+      .filter((mesh) => mesh.position[axes] === position)
     meshes.forEach((mesh) => o3d.add(mesh))
     const normalizedAxis = axisToVector(axes).normalize()
     const quaternion = new THREE.Quaternion()
     quaternion.setFromAxisAngle(normalizedAxis, angle)
     o3d.applyQuaternion(quaternion)
-    meshes.forEach((mesh) => scene.add(mesh.applyQuaternion(quaternion)))
-    o3d.clear()
+    console.log(meshes.length)
+    meshes.forEach((mesh) => {
+      mesh.updateMatrixWorld(true)
+
+      const worldPosition = new THREE.Vector3()
+      const worldQuaternion = new THREE.Quaternion()
+
+      mesh.position.copy(mesh.getWorldPosition(worldPosition))
+      mesh.quaternion.copy(mesh.getWorldQuaternion(worldQuaternion))
+
+      mesh.position.set(
+        Math.round(mesh.position.x),
+        Math.round(mesh.position.y),
+        Math.round(mesh.position.z)
+      )
+
+      scene.add(mesh)
+    })
+    scene.remove(o3d)
   }
 
   const notation = {
-    'U ': () => layersY && rotate(layersY.rotateAxis, layersY.coords[2], -Math.PI / 2),
-    "U'": () => layersY && rotate(layersY.rotateAxis, layersY.coords[2], Math.PI / 2),
+    'U ': () => rotate('y', 1, -Math.PI / 2),
+    "U'": () => rotate('y', 1, Math.PI / 2),
 
-    'D ': () => layersY && rotate(layersY.rotateAxis, layersY.coords[0], Math.PI / 2),
-    "D'": () => layersY && rotate(layersY.rotateAxis, layersY.coords[0], -Math.PI / 2),
+    'D ': () => rotate('y', -1, Math.PI / 2),
+    "D'": () => rotate('y', -1, -Math.PI / 2),
 
-    'R ': () => layersX && rotate(layersX.rotateAxis, layersX.coords[2], -Math.PI / 2),
-    "R'": () => layersX && rotate(layersX.rotateAxis, layersX.coords[2], Math.PI / 2),
+    'R ': () => rotate('x', 1, -Math.PI / 2),
+    "R'": () => rotate('x', 1, Math.PI / 2),
 
-    'L ': () => layersX && rotate(layersX.rotateAxis, layersX.coords[0], Math.PI / 2),
-    "L'": () => layersX && rotate(layersX.rotateAxis, layersX.coords[0], -Math.PI / 2),
+    'L ': () => rotate('x', -1, Math.PI / 2),
+    "L'": () => rotate('x', -1, -Math.PI / 2),
 
-    'F ': () => layersZ && rotate(layersZ.rotateAxis, layersZ.coords[2], -Math.PI / 2),
-    "F'": () => layersZ && rotate(layersZ.rotateAxis, layersZ.coords[2], Math.PI / 2),
+    'F ': () => rotate('z', 1, -Math.PI / 2),
+    "F'": () => rotate('z', 1, Math.PI / 2),
 
-    'B ': () => layersZ && rotate(layersZ.rotateAxis, layersZ.coords[0], Math.PI / 2),
-    "B'": () => layersZ && rotate(layersZ.rotateAxis, layersZ.coords[0], -Math.PI / 2)
+    'B ': () => rotate('z', -1, Math.PI / 2),
+    "B'": () => rotate('z', -1, -Math.PI / 2)
   }
 
   Object.keys(notation).forEach((key) => {
@@ -187,6 +168,8 @@ onMounted(() => {
 
   renderCube = (pieces: IPiece[]) => {
     pieces.forEach(({ mesh }) => scene.add(mesh))
+    notation['R ']()
+    notation['U ']()
   }
 })
 

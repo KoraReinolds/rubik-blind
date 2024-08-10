@@ -13,28 +13,55 @@ const canvas = ref<HTMLCanvasElement | null>(null)
 let renderCube: (pieces: IPiece[]) => void | undefined
 
 const coordMap: Record<string, TCoord> = {}
-const material = [
-  new THREE.MeshBasicMaterial({ color: 0x008000 }), // (green)
-  new THREE.MeshBasicMaterial({ color: 0x0000ff }), // (blue)
-  new THREE.MeshBasicMaterial({ color: 0xffff00 }), // (yellow)
-  new THREE.MeshBasicMaterial({ color: 0xffffff }), // (white)
-  new THREE.MeshBasicMaterial({ color: 0xff0000 }), // (red)
-  new THREE.MeshBasicMaterial({ color: 0xffa500 }) // (orange)
-]
+enum ECubeMaterial {
+  GREEN,
+  BLUE,
+  YELLOW,
+  WHITE,
+  RED,
+  ORANGE
+}
+
+const material: Record<ECubeMaterial, any> = {
+  [ECubeMaterial.GREEN]: new THREE.MeshBasicMaterial({ color: 0x008000 }),
+  [ECubeMaterial.BLUE]: new THREE.MeshBasicMaterial({ color: 0x0000ff }),
+  [ECubeMaterial.YELLOW]: new THREE.MeshBasicMaterial({ color: 0xffff00 }),
+  [ECubeMaterial.WHITE]: new THREE.MeshBasicMaterial({ color: 0xffffff }),
+  [ECubeMaterial.RED]: new THREE.MeshBasicMaterial({ color: 0xff0000 }),
+  [ECubeMaterial.ORANGE]: new THREE.MeshBasicMaterial({ color: 0xffa500 })
+}
 
 type TCubeState = Map<TCoord, IPiece>
+
+const neutralMaterial = new THREE.MeshBasicMaterial({ color: 0x000000 })
 
 const initCube = (size: number) => {
   const state: TCubeState = new Map()
   const half = (size - 1) / 2
+
   for (let x = 0; x < size; x++) {
     for (let y = 0; y < size; y++) {
       for (let z = 0; z < size; z++) {
         const coord: TCoord = { x: +x - half, y: +y - half, z: +z - half }
-        const mesh = new THREE.Mesh(new THREE.BoxGeometry(cubeSize, cubeSize, cubeSize), material)
+
+        const faceMaterials = [
+          coord.x === half ? material[ECubeMaterial.GREEN] : neutralMaterial,
+          coord.x === -half ? material[ECubeMaterial.BLUE] : neutralMaterial,
+          coord.y === half ? material[ECubeMaterial.YELLOW] : neutralMaterial,
+          coord.y === -half ? material[ECubeMaterial.WHITE] : neutralMaterial,
+          coord.z === half ? material[ECubeMaterial.RED] : neutralMaterial,
+          coord.z === -half ? material[ECubeMaterial.ORANGE] : neutralMaterial
+        ]
+
+        const mesh = new THREE.Mesh(
+          new THREE.BoxGeometry(cubeSize, cubeSize, cubeSize),
+          faceMaterials
+        )
+
         mesh.translateX(x - 1)
         mesh.translateY(y - 1)
         mesh.translateZ(z - 1)
+
         const piece: IPiece = { mesh }
         coordMap[`${Object.values(coord)}`] = coord
         state.set(coord, piece)
@@ -98,15 +125,17 @@ onMounted(() => {
   const rotate = (axes: TAxis, position: number, angle: number) => {
     const o3d = new THREE.Object3D()
     scene.add(o3d)
+
     const meshes = [...state.value.values()]
       .map((piece) => piece.mesh)
-      .filter((mesh) => mesh.position[axes] === position)
+      .filter((mesh) => Math.round(mesh.position[axes]) === position)
     meshes.forEach((mesh) => o3d.add(mesh))
+
     const normalizedAxis = axisToVector(axes).normalize()
     const quaternion = new THREE.Quaternion()
     quaternion.setFromAxisAngle(normalizedAxis, angle)
     o3d.applyQuaternion(quaternion)
-    console.log(meshes.length)
+
     meshes.forEach((mesh) => {
       mesh.updateMatrixWorld(true)
 
@@ -116,14 +145,11 @@ onMounted(() => {
       mesh.position.copy(mesh.getWorldPosition(worldPosition))
       mesh.quaternion.copy(mesh.getWorldQuaternion(worldQuaternion))
 
-      mesh.position.set(
-        Math.round(mesh.position.x),
-        Math.round(mesh.position.y),
-        Math.round(mesh.position.z)
-      )
+      mesh.position.set(mesh.position.x, mesh.position.y, mesh.position.z)
 
       scene.add(mesh)
     })
+
     scene.remove(o3d)
   }
 

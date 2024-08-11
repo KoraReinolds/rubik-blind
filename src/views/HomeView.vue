@@ -13,16 +13,30 @@ const canvas = ref<HTMLCanvasElement | null>(null)
 let renderCube: (pieces: IPiece[]) => void | undefined
 
 const coordMap: Record<string, TCoord> = {}
+
 enum ECubeMaterial {
   GREEN,
   BLUE,
   YELLOW,
   WHITE,
   RED,
-  ORANGE
+  ORANGE,
+  EMPTY,
+  SELECTED
 }
 
-const material: Record<ECubeMaterial, any> = {
+const colorMap: Record<number, string> = {
+  0x008000: 'G',
+  0x0000ff: 'B',
+  0xffff00: 'Y',
+  0xffffff: 'W',
+  0xff0000: 'R',
+  0xffa500: 'O'
+}
+
+const material: Record<ECubeMaterial, THREE.MeshBasicMaterial> = {
+  [ECubeMaterial.SELECTED]: new THREE.MeshBasicMaterial({ color: 0x991144 }),
+  [ECubeMaterial.EMPTY]: new THREE.MeshBasicMaterial({ color: 0x555555 }),
   [ECubeMaterial.GREEN]: new THREE.MeshBasicMaterial({ color: 0x008000 }),
   [ECubeMaterial.BLUE]: new THREE.MeshBasicMaterial({ color: 0x0000ff }),
   [ECubeMaterial.YELLOW]: new THREE.MeshBasicMaterial({ color: 0xffff00 }),
@@ -73,6 +87,36 @@ const initCube = (size: number) => {
 }
 
 const state = shallowRef<TCubeState>(new Map())
+
+const getState = (state: TCubeState) => {
+  return new Map(
+    [...state.entries()]
+      .map(([coord]) => [coord, getMeshesFromState(state, [coord]).map((mesh) => mesh.material)[0]])
+      .map(([coord, colors]) => [
+        coord,
+        [...(colors as THREE.MeshBasicMaterial[])]
+          .reverse()
+          .map((mat) => mat.color.getHex())
+          .filter((hex) => !!hex)
+          .map((hex) => colorMap[hex])
+      ])
+  )
+}
+
+const getMeshesFromState = (state: TCubeState, positions: Partial<TCoord>[]) => {
+  return [...state.values()]
+    .map((piece) => piece.mesh)
+    .filter((mesh) => {
+      return positions.every((position) => {
+        const { x, y, z } = position
+        return (
+          (x === undefined ? true : Math.round(mesh.position.x) === x) &&
+          (y === undefined ? true : Math.round(mesh.position.y) === y) &&
+          (z === undefined ? true : Math.round(mesh.position.z) === z)
+        )
+      })
+    })
+}
 
 onMounted(() => {
   if (!canvas.value) return
@@ -126,9 +170,13 @@ onMounted(() => {
     const o3d = new THREE.Object3D()
     scene.add(o3d)
 
-    const meshes = [...state.value.values()]
-      .map((piece) => piece.mesh)
-      .filter((mesh) => Math.round(mesh.position[axes]) === position)
+    const pos: Partial<TCoord> = {}
+    pos[axes] = position
+
+    const meshes = getMeshesFromState(state.value, [pos])
+    // const meshes = [...state.value.values()]
+    //   .map((piece) => piece.mesh)
+    //   .filter((mesh) => Math.round(mesh.position[axes]) === position)
     meshes.forEach((mesh) => o3d.add(mesh))
 
     const normalizedAxis = axisToVector(axes).normalize()
@@ -153,7 +201,7 @@ onMounted(() => {
     scene.remove(o3d)
   }
 
-  const notation = {
+  const notation: Record<string, () => void> = {
     'U ': () => rotate('y', 1, -Math.PI / 2),
     "U'": () => rotate('y', 1, Math.PI / 2),
 
@@ -192,10 +240,25 @@ onMounted(() => {
   tick()
   state.value = initCube(SIZE)
 
+  const reverseNotation = (not: string) => {
+    return not[0] + (not[1] === ' ' ? "'" : ' ')
+  }
+
+  const reverseSequence = (seq: string[]) => {
+    return seq.reverse().map(reverseNotation)
+  }
+
+  const a = ["L'", "D'", 'L ']
+  const b = ['U ', 'U ']
+
   renderCube = (pieces: IPiece[]) => {
     pieces.forEach(({ mesh }) => scene.add(mesh))
-    notation['R ']()
-    notation['U ']()
+    b.forEach((not) => notation[not]())
+    a.forEach((not) => notation[not]())
+
+    reverseSequence(b).forEach((not) => notation[not]())
+    reverseSequence(a).forEach((not) => notation[not]())
+    console.log(getState(state.value))
   }
 })
 

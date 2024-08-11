@@ -46,6 +46,7 @@ const material: Record<ECubeMaterial, THREE.MeshBasicMaterial> = {
 }
 
 type TCubeState = Map<TCoord, IPiece>
+type TCubeColorState = Map<TCoord, string[]>
 
 const neutralMaterial = new THREE.MeshBasicMaterial({ color: 0x000000 })
 
@@ -88,7 +89,7 @@ const initCube = (size: number) => {
 
 const state = shallowRef<TCubeState>(new Map())
 
-const getState = (state: TCubeState) => {
+const getState = (state: TCubeState): TCubeColorState => {
   return new Map(
     [...state.entries()]
       .map(([coord]) => [coord, getMeshesFromState(state, [coord]).map((mesh) => mesh.material)[0]])
@@ -100,7 +101,21 @@ const getState = (state: TCubeState) => {
           .filter((hex) => !!hex)
           .map((hex) => colorMap[hex])
       ])
-  )
+  ) as TCubeColorState
+}
+
+const compareState = (state1: TCubeColorState, state2: TCubeColorState): TCubeColorState => {
+  const compareState = new Map()
+
+  ;[...state1.keys()].forEach((key) => {
+    const rawState1 = state1.get(key)?.join()
+    const rawState2 = state2.get(key)?.join()
+    if (rawState1 !== rawState2) {
+      compareState.set(key, rawState2)
+    }
+  })
+
+  return compareState
 }
 
 const getMeshesFromState = (state: TCubeState, positions: Partial<TCoord>[]) => {
@@ -253,12 +268,14 @@ onMounted(() => {
 
   renderCube = (pieces: IPiece[]) => {
     pieces.forEach(({ mesh }) => scene.add(mesh))
+    const state1 = getState(state.value)
     b.forEach((not) => notation[not]())
     a.forEach((not) => notation[not]())
 
     reverseSequence(b).forEach((not) => notation[not]())
     reverseSequence(a).forEach((not) => notation[not]())
-    console.log(getState(state.value))
+    const state2 = getState(state.value)
+    console.log(compareState(state1, state2))
   }
 })
 

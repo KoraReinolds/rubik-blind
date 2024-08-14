@@ -60,12 +60,12 @@ const initCube = (size: number) => {
         const coord: TCoord = { x: +x - half, y: +y - half, z: +z - half }
 
         const faceMaterials = [
-          coord.x === half ? material[ECubeMaterial.GREEN] : neutralMaterial,
-          coord.x === -half ? material[ECubeMaterial.BLUE] : neutralMaterial,
-          coord.y === half ? material[ECubeMaterial.YELLOW] : neutralMaterial,
-          coord.y === -half ? material[ECubeMaterial.WHITE] : neutralMaterial,
-          coord.z === half ? material[ECubeMaterial.RED] : neutralMaterial,
-          coord.z === -half ? material[ECubeMaterial.ORANGE] : neutralMaterial
+          coord.x === half ? material[ECubeMaterial.GREEN] : neutralMaterial, // 0
+          coord.x === -half ? material[ECubeMaterial.BLUE] : neutralMaterial, // 1
+          coord.y === half ? material[ECubeMaterial.YELLOW] : neutralMaterial, // 2
+          coord.y === -half ? material[ECubeMaterial.WHITE] : neutralMaterial, // 3
+          coord.z === half ? material[ECubeMaterial.RED] : neutralMaterial, // 4
+          coord.z === -half ? material[ECubeMaterial.ORANGE] : neutralMaterial // 5
         ]
 
         const mesh = new THREE.Mesh(
@@ -133,6 +133,16 @@ const getMeshesFromState = (state: TCubeState, positions: Partial<TCoord>[]) => 
     })
 }
 
+const selectPieces = (state: TCubeState, meshes: THREE.Mesh[]) => {
+  return [...state.values()].map(({ mesh }) => {
+    if (meshes.includes(mesh)) {
+      mesh.material = material[ECubeMaterial.SELECTED]
+    } else {
+      mesh.material = material[ECubeMaterial.EMPTY]
+    }
+  })
+}
+
 onMounted(() => {
   if (!canvas.value) return
 
@@ -181,59 +191,67 @@ onMounted(() => {
   const axesHelper = new THREE.AxesHelper(5)
   scene.add(axesHelper)
 
-  const rotate = (axes: TAxis, position: number, angle: number) => {
-    const o3d = new THREE.Object3D()
-    scene.add(o3d)
+  const rotate = (axes: TAxis, positions: number[], angle: number) => {
+    positions.forEach((position) => {
+      const o3d = new THREE.Object3D()
+      scene.add(o3d)
 
-    const pos: Partial<TCoord> = {}
-    pos[axes] = position
+      const pos: Partial<TCoord> = {}
+      pos[axes] = position
 
-    const meshes = getMeshesFromState(state.value, [pos])
-    // const meshes = [...state.value.values()]
-    //   .map((piece) => piece.mesh)
-    //   .filter((mesh) => Math.round(mesh.position[axes]) === position)
-    meshes.forEach((mesh) => o3d.add(mesh))
+      const meshes = getMeshesFromState(state.value, [pos])
+      meshes.forEach((mesh) => o3d.add(mesh))
 
-    const normalizedAxis = axisToVector(axes).normalize()
-    const quaternion = new THREE.Quaternion()
-    quaternion.setFromAxisAngle(normalizedAxis, angle)
-    o3d.applyQuaternion(quaternion)
+      const normalizedAxis = axisToVector(axes).normalize()
+      const quaternion = new THREE.Quaternion()
+      quaternion.setFromAxisAngle(normalizedAxis, angle)
+      o3d.applyQuaternion(quaternion)
 
-    meshes.forEach((mesh) => {
-      mesh.updateMatrixWorld(true)
+      meshes.forEach((mesh) => {
+        mesh.updateMatrixWorld(true)
 
-      const worldPosition = new THREE.Vector3()
-      const worldQuaternion = new THREE.Quaternion()
+        const worldPosition = new THREE.Vector3()
+        const worldQuaternion = new THREE.Quaternion()
 
-      mesh.position.copy(mesh.getWorldPosition(worldPosition))
-      mesh.quaternion.copy(mesh.getWorldQuaternion(worldQuaternion))
+        mesh.position.copy(mesh.getWorldPosition(worldPosition))
+        mesh.quaternion.copy(mesh.getWorldQuaternion(worldQuaternion))
 
-      mesh.position.set(mesh.position.x, mesh.position.y, mesh.position.z)
+        mesh.position.set(mesh.position.x, mesh.position.y, mesh.position.z)
 
-      scene.add(mesh)
+        scene.add(mesh)
+      })
+
+      scene.remove(o3d)
     })
-
-    scene.remove(o3d)
   }
 
   const notation: Record<string, () => void> = {
-    'U ': () => rotate('y', 1, -Math.PI / 2),
-    "U'": () => rotate('y', 1, Math.PI / 2),
+    'X ': () => rotate('x', [-1, 0, 1], -Math.PI / 2),
+    "X'": () => rotate('x', [-1, 0, 1], Math.PI / 2),
 
-    'D ': () => rotate('y', -1, Math.PI / 2),
-    "D'": () => rotate('y', -1, -Math.PI / 2),
+    'Y ': () => rotate('y', [-1, 0, 1], -Math.PI / 2),
+    "Y'": () => rotate('y', [-1, 0, 1], Math.PI / 2),
 
-    'R ': () => rotate('x', 1, -Math.PI / 2),
-    "R'": () => rotate('x', 1, Math.PI / 2),
+    'Z ': () => rotate('z', [-1, 0, 1], -Math.PI / 2),
+    "Z'": () => rotate('z', [-1, 0, 1], Math.PI / 2),
 
-    'L ': () => rotate('x', -1, Math.PI / 2),
-    "L'": () => rotate('x', -1, -Math.PI / 2),
+    'U ': () => rotate('y', [1], -Math.PI / 2),
+    "U'": () => rotate('y', [1], Math.PI / 2),
 
-    'F ': () => rotate('z', 1, -Math.PI / 2),
-    "F'": () => rotate('z', 1, Math.PI / 2),
+    'D ': () => rotate('y', [-1], Math.PI / 2),
+    "D'": () => rotate('y', [-1], -Math.PI / 2),
 
-    'B ': () => rotate('z', -1, Math.PI / 2),
-    "B'": () => rotate('z', -1, -Math.PI / 2)
+    'R ': () => rotate('x', [1], -Math.PI / 2),
+    "R'": () => rotate('x', [1], Math.PI / 2),
+
+    'L ': () => rotate('x', [-1], Math.PI / 2),
+    "L'": () => rotate('x', [-1], -Math.PI / 2),
+
+    'F ': () => rotate('z', [1], -Math.PI / 2),
+    "F'": () => rotate('z', [1], Math.PI / 2),
+
+    'B ': () => rotate('z', [-1], Math.PI / 2),
+    "B'": () => rotate('z', [-1], -Math.PI / 2)
   }
 
   Object.keys(notation).forEach((key) => {
@@ -260,22 +278,54 @@ onMounted(() => {
   }
 
   const reverseSequence = (seq: string[]) => {
-    return seq.reverse().map(reverseNotation)
+    return [...seq].reverse().map(reverseNotation)
   }
+
+  const allStates: Record<string, any[]> = {}
 
   const a = ["L'", "D'", 'L ']
   const b = ['U ', 'U ']
 
-  renderCube = (pieces: IPiece[]) => {
-    pieces.forEach(({ mesh }) => scene.add(mesh))
-    const state1 = getState(state.value)
+  const rotateAB = (a: string[], b: string[], c?: string[]) => {
     b.forEach((not) => notation[not]())
     a.forEach((not) => notation[not]())
 
     reverseSequence(b).forEach((not) => notation[not]())
     reverseSequence(a).forEach((not) => notation[not]())
+  }
+
+  const ab_ba = (a: string[], b: string[], c?: string[]) => {
+    if (c) c.forEach((n) => notation[n]())
+    const state1 = getState(state.value)
+
+    rotateAB(a, b, c)
+
     const state2 = getState(state.value)
-    console.log(compareState(state1, state2))
+    const compare = compareState(state1, state2)
+    if (compare.size !== 3) {
+      console.warn(a, b, compare.size)
+    }
+    const seq = [c, ...a, ...b].filter((item) => !!item).toString()
+    if (allStates[seq]) allStates[seq].push(compare)
+    else allStates[seq] = [compare]
+
+    rotateAB(a, b, c)
+    rotateAB(a, b, c)
+
+    if (c) c.reverse().forEach((n) => notation[reverseNotation(n)]())
+  }
+
+  renderCube = (pieces: IPiece[]) => {
+    pieces.forEach(({ mesh }) => scene.add(mesh))
+
+    ab_ba(a, b)
+    ab_ba(b, a)
+    ;[["Z'", "Y'"], ['Z '], ["Z'"], ['X '], ["X'"], ['Y '], ["Y'"]].forEach((not) => {
+      ab_ba(a, b, not)
+      ab_ba(b, a, not)
+    })
+
+    console.log(allStates)
   }
 })
 

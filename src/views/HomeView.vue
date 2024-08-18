@@ -7,8 +7,14 @@ import * as THREE from 'three'
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js'
 import GUI from 'lil-gui'
 
+const url = new URL(window.location.href)
+const params = new URLSearchParams(url.search)
+
 const SIZE = 3
 const gui = new GUI()
+
+if (!params.get('debug')) gui.hide()
+
 const canvas = ref<HTMLCanvasElement | null>(null)
 let renderCube: (pieces: IPiece[]) => void | undefined
 
@@ -48,7 +54,8 @@ const material: Record<ECubeMaterial, THREE.MeshBasicMaterial> = {
 type TCubeState = Map<TCoord, IPiece>
 type TCubeColorState = Map<TCoord, string[]>
 
-const neutralMaterial = new THREE.MeshBasicMaterial({ color: 0x000000 })
+const backgroundColor = '#1e1e1e'
+const neutralMaterial = new THREE.MeshBasicMaterial({ color: backgroundColor })
 
 const initCube = (size: number) => {
   const state: TCubeState = new Map()
@@ -174,9 +181,9 @@ onMounted(() => {
   })
 
   const camera = new THREE.PerspectiveCamera(75, sizes.width / sizes.height, 0.1, 100)
-  camera.position.x = -4
-  camera.position.y = 4
-  camera.position.z = 6
+  camera.position.x = -2.5
+  camera.position.y = 2.5
+  camera.position.z = 3
   scene.add(camera)
 
   const controls = new OrbitControls(camera, canvas.value)
@@ -190,6 +197,7 @@ onMounted(() => {
 
   const axesHelper = new THREE.AxesHelper(5)
   scene.add(axesHelper)
+  scene.background = new THREE.Color(backgroundColor)
 
   const rotate = (axes: TAxis, positions: number[], angle: number) => {
     positions.forEach((position) => {
@@ -345,9 +353,6 @@ onMounted(() => {
     pieces.forEach(({ mesh }) => scene.add(mesh))
 
     // generateStates()
-
-    let url = new URL(window.location.href)
-    let params = new URLSearchParams(url.search)
 
     const [rot, a, b] = params.get('not')?.split('-') || []
 

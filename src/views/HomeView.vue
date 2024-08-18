@@ -226,31 +226,31 @@ onMounted(() => {
   }
 
   const notation: Record<string, () => void> = {
-    'X ': () => rotate('x', [-1, 0, 1], -Math.PI / 2),
+    X: () => rotate('x', [-1, 0, 1], -Math.PI / 2),
     "X'": () => rotate('x', [-1, 0, 1], Math.PI / 2),
 
-    'Y ': () => rotate('y', [-1, 0, 1], -Math.PI / 2),
+    Y: () => rotate('y', [-1, 0, 1], -Math.PI / 2),
     "Y'": () => rotate('y', [-1, 0, 1], Math.PI / 2),
 
-    'Z ': () => rotate('z', [-1, 0, 1], -Math.PI / 2),
+    Z: () => rotate('z', [-1, 0, 1], -Math.PI / 2),
     "Z'": () => rotate('z', [-1, 0, 1], Math.PI / 2),
 
-    'U ': () => rotate('y', [1], -Math.PI / 2),
+    U: () => rotate('y', [1], -Math.PI / 2),
     "U'": () => rotate('y', [1], Math.PI / 2),
 
-    'D ': () => rotate('y', [-1], Math.PI / 2),
+    D: () => rotate('y', [-1], Math.PI / 2),
     "D'": () => rotate('y', [-1], -Math.PI / 2),
 
-    'R ': () => rotate('x', [1], -Math.PI / 2),
+    R: () => rotate('x', [1], -Math.PI / 2),
     "R'": () => rotate('x', [1], Math.PI / 2),
 
-    'L ': () => rotate('x', [-1], Math.PI / 2),
+    L: () => rotate('x', [-1], Math.PI / 2),
     "L'": () => rotate('x', [-1], -Math.PI / 2),
 
-    'F ': () => rotate('z', [1], -Math.PI / 2),
+    F: () => rotate('z', [1], -Math.PI / 2),
     "F'": () => rotate('z', [1], Math.PI / 2),
 
-    'B ': () => rotate('z', [-1], Math.PI / 2),
+    B: () => rotate('z', [-1], Math.PI / 2),
     "B'": () => rotate('z', [-1], -Math.PI / 2)
   }
 
@@ -274,7 +274,7 @@ onMounted(() => {
   state.value = initCube(SIZE)
 
   const reverseNotation = (not: string) => {
-    return not[0] + (not[1] === ' ' ? "'" : ' ')
+    return not[1] ? not[0] : not[0] + "'"
   }
 
   const reverseSequence = (seq: string[]) => {
@@ -283,49 +283,75 @@ onMounted(() => {
 
   const allStates: Record<string, any[]> = {}
 
-  const a = ["L'", "D'", 'L ']
-  const b = ['U ', 'U ']
+  const a = ["L'", "D'", 'L']
+  const b = ['U', 'U']
 
   const rotateAB = (a: string[], b: string[], c?: string[]) => {
+    if (c) c.forEach((n) => notation[n]())
+
     b.forEach((not) => notation[not]())
     a.forEach((not) => notation[not]())
 
     reverseSequence(b).forEach((not) => notation[not]())
     reverseSequence(a).forEach((not) => notation[not]())
+
+    if (c) c.reverse().forEach((n) => notation[reverseNotation(n)]())
   }
 
   const ab_ba = (a: string[], b: string[], c?: string[]) => {
     if (c) c.forEach((n) => notation[n]())
     const state1 = getState(state.value)
 
-    rotateAB(a, b, c)
+    rotateAB(a, b)
 
     const state2 = getState(state.value)
     const compare = compareState(state1, state2)
     if (compare.size !== 3) {
       console.warn(a, b, compare.size)
     }
-    const seq = [c, ...a, ...b].filter((item) => !!item).toString()
+    const seq = [c, a, b].join('-').toString()
     if (allStates[seq]) allStates[seq].push(compare)
     else allStates[seq] = [compare]
 
-    rotateAB(a, b, c)
-    rotateAB(a, b, c)
+    rotateAB(a, b)
+    rotateAB(a, b)
 
     if (c) c.reverse().forEach((n) => notation[reverseNotation(n)]())
+  }
+
+  const generateStates = () => {
+    ab_ba(a, b)
+    ab_ba(b, a)
+    ;[["Z'", "Y'"], ['Z'], ["Z'"], ['X'], ["X'"], ['Y'], ["Y'"]].forEach((not) => {
+      ab_ba(a, b, not)
+      ab_ba(b, a, not)
+    })
+
+    console.log(
+      JSON.stringify(
+        Object.entries(allStates).map(([key, val]) => {
+          return [
+            key,
+            val.map((item) =>
+              [...item.entries()].map(([key, val]) => [Object.values(key).join(','), val])
+            )
+          ]
+        })
+      )
+    )
   }
 
   renderCube = (pieces: IPiece[]) => {
     pieces.forEach(({ mesh }) => scene.add(mesh))
 
-    ab_ba(a, b)
-    ab_ba(b, a)
-    ;[["Z'", "Y'"], ['Z '], ["Z'"], ['X '], ["X'"], ['Y '], ["Y'"]].forEach((not) => {
-      ab_ba(a, b, not)
-      ab_ba(b, a, not)
-    })
+    // generateStates()
 
-    console.log(allStates)
+    let url = new URL(window.location.href)
+    let params = new URLSearchParams(url.search)
+
+    const [rot, a, b] = params.get('not')?.split('-') || []
+
+    rotateAB(a.split(','), b.split(','), rot ? rot.split(',') : undefined)
   }
 })
 

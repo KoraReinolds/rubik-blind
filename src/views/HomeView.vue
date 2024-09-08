@@ -181,9 +181,9 @@ onMounted(() => {
   })
 
   const camera = new THREE.PerspectiveCamera(75, sizes.width / sizes.height, 0.1, 100)
-  camera.position.x = -2.5
-  camera.position.y = 2.5
-  camera.position.z = 3
+  camera.position.x = -3
+  camera.position.y = 3
+  camera.position.z = 4
   scene.add(camera)
 
   const controls = new OrbitControls(camera, canvas.value)
@@ -199,9 +199,53 @@ onMounted(() => {
   scene.add(axesHelper)
   scene.background = new THREE.Color(backgroundColor)
 
+  const rotateObject = (o3d: THREE.Object3D, axes: TAxis, angle: number) => {
+    const normalizedAxis = axisToVector(axes).normalize()
+    const quaternion = new THREE.Quaternion()
+    quaternion.setFromAxisAngle(normalizedAxis, angle)
+    o3d.applyQuaternion(quaternion)
+    return o3d
+  }
+
+  const rotate3D = (pos: { x: number; y: number; z: number }, axis: TAxis, angle: number) => {
+    // Convert angle to radians
+    const radians = angle
+
+    const { x, y, z } = pos
+
+    let newX = x
+    let newY = y
+    let newZ = z
+
+    if (axis) {
+      switch (axis.toLowerCase()) {
+        case 'x': // Rotate around X-axis
+          newY = y * Math.cos(radians) - z * Math.sin(radians)
+          newZ = y * Math.sin(radians) + z * Math.cos(radians)
+          break
+
+        case 'y': // Rotate around Y-axis
+          newX = x * Math.cos(radians) + z * Math.sin(radians)
+          newZ = -x * Math.sin(radians) + z * Math.cos(radians)
+          break
+
+        case 'z': // Rotate around Z-axis
+          newX = x * Math.cos(radians) - y * Math.sin(radians)
+          newY = x * Math.sin(radians) + y * Math.cos(radians)
+          break
+
+        default:
+          console.error("Invalid axis. Please use 'x', 'y', or 'z'.")
+          break
+      }
+    }
+
+    return { x: Math.round(newX), y: Math.round(newY), z: Math.round(newZ) }
+  }
+
   const rotate = (axes: TAxis, positions: number[], angle: number) => {
     positions.forEach((position) => {
-      const o3d = new THREE.Object3D()
+      let o3d = new THREE.Object3D()
       scene.add(o3d)
 
       const pos: Partial<TCoord> = {}
@@ -210,10 +254,7 @@ onMounted(() => {
       const meshes = getMeshesFromState(state.value, [pos])
       meshes.forEach((mesh) => o3d.add(mesh))
 
-      const normalizedAxis = axisToVector(axes).normalize()
-      const quaternion = new THREE.Quaternion()
-      quaternion.setFromAxisAngle(normalizedAxis, angle)
-      o3d.applyQuaternion(quaternion)
+      o3d = rotateObject(o3d, axes, angle)
 
       meshes.forEach((mesh) => {
         mesh.updateMatrixWorld(true)
@@ -327,6 +368,20 @@ onMounted(() => {
     if (c) c.reverse().forEach((n) => notation[reverseNotation(n)]())
   }
 
+  const rotatePosition = (pos: { x: number; y: number; z: number }, notation: string) => {
+    const prefixes = notation.split('-')[0].split(',')
+    let p = pos
+
+    prefixes.forEach((prefix) => {
+      const axes = prefix.toLowerCase()[0] as TAxis
+      const angle = prefix[1] ? Math.PI / 2 : -Math.PI / 2
+
+      p = rotate3D(p, axes, angle)
+    })
+
+    return Object.values(p).join(',')
+  }
+
   const generateStates = () => {
     ab_ba(a, b)
     ab_ba(b, a)
@@ -337,11 +392,11 @@ onMounted(() => {
 
     console.log(
       JSON.stringify(
-        Object.entries(allStates).map(([key, val]) => {
+        Object.entries(allStates).map(([notation, val]) => {
           return [
-            key,
+            notation,
             val.map((item) =>
-              [...item.entries()].map(([key, val]) => [Object.values(key).join(','), val])
+              [...item.entries()].map(([key, val]) => [rotatePosition(key, notation), val])
             )
           ]
         })
@@ -353,6 +408,9 @@ onMounted(() => {
     pieces.forEach(({ mesh }) => scene.add(mesh))
 
     // generateStates()
+
+    // const mesh = [...state.value.values()].map((item) => item.mesh)[6]
+    // selectPieces(state.value, [mesh])
 
     const [rot, a, b] = params.get('not')?.split('-') || []
 

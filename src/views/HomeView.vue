@@ -374,7 +374,7 @@ onMounted(() => {
 
     prefixes.forEach((prefix) => {
       const axes = prefix.toLowerCase()[0] as TAxis
-      const angle = prefix[1] ? Math.PI / 2 : -Math.PI / 2
+      const angle = prefix[1] ? -Math.PI / 2 : Math.PI / 2
 
       p = rotate3D(p, axes, angle)
     })
@@ -407,7 +407,7 @@ onMounted(() => {
   renderCube = (pieces: IPiece[]) => {
     pieces.forEach(({ mesh }) => scene.add(mesh))
 
-    // generateStates()
+    generateStates()
 
     // const mesh = [...state.value.values()].map((item) => item.mesh)[6]
     // selectPieces(state.value, [mesh])

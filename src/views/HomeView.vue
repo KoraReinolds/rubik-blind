@@ -407,7 +407,7 @@ onMounted(() => {
   renderCube = (pieces: IPiece[]) => {
     pieces.forEach(({ mesh }) => scene.add(mesh))
 
-    generateStates()
+    // generateStates()
 
     // const mesh = [...state.value.values()].map((item) => item.mesh)[6]
     // selectPieces(state.value, [mesh])
